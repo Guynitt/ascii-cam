@@ -10,82 +10,180 @@
 </head>
 
 <body>
-    <!-- Hidden video element -->
+    <!-- Hidden video element (shared) -->
     <video id="videoSource" autoplay muted playsinline></video>
 
-    <!-- Output container with canvas -->
+    <!-- Output container (shared, always visible) -->
     <div id="outputContainer">
         <canvas id="asciiCanvas"></canvas>
     </div>
 
-    <!-- Controls panel -->
-    <div id="controls">
-        <!-- Source selectors -->
-        <div class="control-row sources">
-            <div class="source-group">
-                <span class="label">Video</span>
-                <button id="btnCamera" class="source-btn active">Camera</button>
-                <label class="source-btn file-label">
-                    Upload
-                    <input type="file" id="videoUpload" accept="video/mp4,video/webm,video/quicktime" hidden>
+    <!-- ========================================
+         DESKTOP SHELL
+         ======================================== -->
+    <div id="desktopShell">
+        <div id="controls">
+            <!-- Source selectors -->
+            <div class="control-row sources">
+                <div class="source-group">
+                    <span class="label">Video</span>
+                    <button id="btnCamera" class="source-btn active">Camera</button>
+                    <label class="source-btn file-label">
+                        Upload
+                        <input type="file" id="videoUpload" accept="video/mp4,video/webm,video/quicktime" hidden>
+                    </label>
+                </div>
+                <div id="creditOverlay">Created by Guy Nittenberg</div>
+            </div>
+
+            <!-- Error message -->
+            <div id="errorMessage" class="error-message"></div>
+
+            <!-- Toggle buttons -->
+            <div class="control-row toggles">
+                <button id="btnOutline" class="toggle-btn">Outline Mode</button>
+                <div class="charset-toggle">
+                    <span class="label">Charset</span>
+                    <select id="charsetMode">
+                        <option value="dense">Dense</option>
+                        <option value="light">Light</option>
+                        <option value="word">Word</option>
+                    </select>
+                </div>
+                <input type="text" id="wordInput" placeholder="Enter phrase..." class="word-input"
+                    style="display:none;">
+            </div>
+
+            <!-- Sliders -->
+            <div class="control-row sliders" id="slidersPanel">
+                <div class="slider-group">
+                    <label>Resolution <span id="valStep">8</span></label>
+                    <input type="range" id="sliderStep" min="4" max="20" value="8">
+                </div>
+                <div class="slider-group">
+                    <label>Font Size <span id="valFontSize">12</span></label>
+                    <input type="range" id="sliderFontSize" min="6" max="22" value="12">
+                </div>
+                <div class="slider-group">
+                    <label>Contrast <span id="valContrast">1.2</span></label>
+                    <input type="range" id="sliderContrast" min="50" max="250" value="120">
+                </div>
+                <div class="slider-group">
+                    <label>Threshold <span id="valThreshold">0</span></label>
+                    <input type="range" id="sliderThreshold" min="0" max="255" value="0">
+                </div>
+                <div class="slider-group">
+                    <label>Glow <span id="valGlow">0.3</span></label>
+                    <input type="range" id="sliderGlow" min="0" max="100" value="30">
+                </div>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="control-row actions">
+                <button id="btnFreeze" class="action-btn">Freeze</button>
+                <button id="btnSnapshot" class="action-btn">Snapshot</button>
+                <button id="btnRecord" class="action-btn">Record 5s</button>
+                <button id="btnReset" class="action-btn reset">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================
+         MOBILE SHELL
+         ======================================== -->
+    <div id="mobileShell" aria-hidden="true">
+        <!-- Top Bar: source controls + credit -->
+        <div id="mobileTopBar">
+            <div class="mobile-source-group">
+                <button id="mBtnCamera" class="mobile-btn active">
+                    <span class="icon">📷</span>
+                </button>
+                <label class="mobile-btn file-label">
+                    <span class="icon">📁</span>
+                    <input type="file" id="mVideoUpload" accept="video/mp4,video/webm,video/quicktime" hidden>
                 </label>
             </div>
-            <div id="creditOverlay">Created by Guy Nittenberg</div>
+            <div id="mCreditOverlay">Created by Guy Nittenberg</div>
+            <button id="mBtnSettings" class="mobile-btn settings-btn">
+                <span class="icon">⚙️</span>
+            </button>
         </div>
 
-        <!-- Error message -->
-        <div id="errorMessage" class="error-message"></div>
-
-        <!-- Toggle buttons -->
-        <div class="control-row toggles">
-            <button id="btnOutline" class="toggle-btn">Outline Mode</button>
-            <div class="charset-toggle">
-                <span class="label">Charset</span>
-                <select id="charsetMode">
-                    <option value="dense">Dense</option>
-                    <option value="light">Light</option>
-                    <option value="word">Word</option>
-                </select>
-            </div>
-            <input type="text" id="wordInput" placeholder="Enter phrase..." class="word-input" style="display:none;">
+        <!-- Bottom Bar: quick actions -->
+        <div id="mobileBottomBar">
+            <button id="mBtnOutline" class="mobile-action-btn">Outline</button>
+            <button id="mBtnFreeze" class="mobile-action-btn">Freeze</button>
+            <button id="mBtnSnapshot" class="mobile-action-btn primary">Snapshot</button>
+            <button id="mBtnRecord" class="mobile-action-btn">Record</button>
         </div>
 
-        <!-- Mobile sliders toggle (hidden on desktop) -->
-        <button id="btnToggleSliders" class="mobile-toggle">
-            <span class="toggle-icon">▼</span> Settings
-        </button>
+        <!-- Settings Sheet (slide up) -->
+        <div id="mobileSheet" class="closed">
+            <div class="sheet-handle" id="mSheetHandle">
+                <div class="handle-bar"></div>
+            </div>
+            <div class="sheet-content">
+                <div class="sheet-header">
+                    <h3>Settings</h3>
+                    <button id="mBtnCloseSheet" class="close-btn">✕</button>
+                </div>
 
-        <!-- Sliders -->
-        <div class="control-row sliders" id="slidersPanel">
-            <div class="slider-group">
-                <label>Resolution <span id="valStep">8</span></label>
-                <input type="range" id="sliderStep" min="4" max="20" value="8">
-            </div>
-            <div class="slider-group">
-                <label>Font Size <span id="valFontSize">12</span></label>
-                <input type="range" id="sliderFontSize" min="6" max="22" value="12">
-            </div>
-            <div class="slider-group">
-                <label>Contrast <span id="valContrast">1.2</span></label>
-                <input type="range" id="sliderContrast" min="50" max="250" value="120">
-            </div>
-            <div class="slider-group">
-                <label>Threshold <span id="valThreshold">0</span></label>
-                <input type="range" id="sliderThreshold" min="0" max="255" value="0">
-            </div>
-            <div class="slider-group">
-                <label>Glow <span id="valGlow">0.3</span></label>
-                <input type="range" id="sliderGlow" min="0" max="100" value="30">
+                <!-- Charset control -->
+                <div class="sheet-row">
+                    <span class="sheet-label">Charset</span>
+                    <select id="mCharsetMode" class="mobile-select">
+                        <option value="dense">Dense</option>
+                        <option value="light">Light</option>
+                        <option value="word">Word</option>
+                    </select>
+                </div>
+                <input type="text" id="mWordInput" placeholder="Enter word/phrase..." class="mobile-word-input"
+                    style="display:none;">
+
+                <!-- Sliders -->
+                <div class="sheet-slider">
+                    <div class="slider-header">
+                        <span>Resolution</span>
+                        <span id="mValStep" class="slider-value">8</span>
+                    </div>
+                    <input type="range" id="mSliderStep" min="4" max="20" value="8">
+                </div>
+                <div class="sheet-slider">
+                    <div class="slider-header">
+                        <span>Font Size</span>
+                        <span id="mValFontSize" class="slider-value">12</span>
+                    </div>
+                    <input type="range" id="mSliderFontSize" min="6" max="22" value="12">
+                </div>
+                <div class="sheet-slider">
+                    <div class="slider-header">
+                        <span>Contrast</span>
+                        <span id="mValContrast" class="slider-value">1.2</span>
+                    </div>
+                    <input type="range" id="mSliderContrast" min="50" max="250" value="120">
+                </div>
+                <div class="sheet-slider">
+                    <div class="slider-header">
+                        <span>Threshold</span>
+                        <span id="mValThreshold" class="slider-value">0</span>
+                    </div>
+                    <input type="range" id="mSliderThreshold" min="0" max="255" value="0">
+                </div>
+                <div class="sheet-slider">
+                    <div class="slider-header">
+                        <span>Glow</span>
+                        <span id="mValGlow" class="slider-value">0.3</span>
+                    </div>
+                    <input type="range" id="mSliderGlow" min="0" max="100" value="30">
+                </div>
+
+                <!-- Reset button -->
+                <button id="mBtnReset" class="mobile-reset-btn">Reset All Settings</button>
             </div>
         </div>
 
-        <!-- Action buttons -->
-        <div class="control-row actions">
-            <button id="btnFreeze" class="action-btn">Freeze</button>
-            <button id="btnSnapshot" class="action-btn">Snapshot</button>
-            <button id="btnRecord" class="action-btn">Record 5s</button>
-            <button id="btnReset" class="action-btn reset">Reset</button>
-        </div>
+        <!-- Error message (mobile) -->
+        <div id="mErrorMessage" class="mobile-error"></div>
     </div>
 
     <script src="app.js"></script>

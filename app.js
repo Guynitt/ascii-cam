@@ -1,5 +1,6 @@
 /**
  * ASCII Cam - Real-time camera to ASCII renderer
+ * Dual Shell UI: Desktop + Mobile with shared logic
  * No external dependencies
  */
 
@@ -22,7 +23,7 @@ const CONFIG = {
     }
 };
 
-// Application state
+// Application state (shared between shells)
 const state = {
     // Video
     videoSource: null,
@@ -45,59 +46,137 @@ const state = {
     // Recording
     isRecording: false,
     mediaRecorder: null,
-    recordedChunks: []
+    recordedChunks: [],
+
+    // UI state
+    currentShell: 'desktop',
+    mobileInitialized: false
 };
 
 // ========================================
-// DOM Elements
+// DOM Elements - Desktop Shell
 // ========================================
-const elements = {
-    videoSource: document.getElementById('videoSource'),
-    canvas: document.getElementById('asciiCanvas'),
-    ctx: null,
+const desktopElements = {
+    shell: null,
+    btnCamera: null,
+    videoUpload: null,
+    btnOutline: null,
+    charsetMode: null,
+    wordInput: null,
+    btnFreeze: null,
+    btnSnapshot: null,
+    btnRecord: null,
+    btnReset: null,
+    sliderStep: null,
+    sliderFontSize: null,
+    sliderContrast: null,
+    sliderThreshold: null,
+    sliderGlow: null,
+    valStep: null,
+    valFontSize: null,
+    valContrast: null,
+    valThreshold: null,
+    valGlow: null,
+    errorMessage: null
+};
 
-    // Buttons
-    btnCamera: document.getElementById('btnCamera'),
-    videoUpload: document.getElementById('videoUpload'),
-    btnOutline: document.getElementById('btnOutline'),
-    charsetMode: document.getElementById('charsetMode'),
-    wordInput: document.getElementById('wordInput'),
-    btnFreeze: document.getElementById('btnFreeze'),
-    btnSnapshot: document.getElementById('btnSnapshot'),
-    btnRecord: document.getElementById('btnRecord'),
-    btnReset: document.getElementById('btnReset'),
+// ========================================
+// DOM Elements - Mobile Shell
+// ========================================
+const mobileElements = {
+    shell: null,
+    topBar: null,
+    bottomBar: null,
+    sheet: null,
+    btnCamera: null,
+    videoUpload: null,
+    btnSettings: null,
+    btnOutline: null,
+    btnFreeze: null,
+    btnSnapshot: null,
+    btnRecord: null,
+    btnReset: null,
+    btnCloseSheet: null,
+    sheetHandle: null,
+    charsetMode: null,
+    wordInput: null,
+    sliderStep: null,
+    sliderFontSize: null,
+    sliderContrast: null,
+    sliderThreshold: null,
+    sliderGlow: null,
+    valStep: null,
+    valFontSize: null,
+    valContrast: null,
+    valThreshold: null,
+    valGlow: null,
+    errorMessage: null
+};
 
-    // Sliders
-    sliderStep: document.getElementById('sliderStep'),
-    sliderFontSize: document.getElementById('sliderFontSize'),
-    sliderContrast: document.getElementById('sliderContrast'),
-    sliderThreshold: document.getElementById('sliderThreshold'),
-    sliderGlow: document.getElementById('sliderGlow'),
-
-    // Value displays
-    valStep: document.getElementById('valStep'),
-    valFontSize: document.getElementById('valFontSize'),
-    valContrast: document.getElementById('valContrast'),
-    valThreshold: document.getElementById('valThreshold'),
-    valGlow: document.getElementById('valGlow'),
-
-    // Mobile toggle
-    btnToggleSliders: document.getElementById('btnToggleSliders'),
-    slidersPanel: document.getElementById('slidersPanel'),
-
-    // Error
-    errorMessage: document.getElementById('errorMessage')
+// Shared elements
+const sharedElements = {
+    videoSource: null,
+    canvas: null,
+    ctx: null
 };
 
 // Offscreen canvas for video sampling
 let offscreenCanvas, offscreenCtx;
 
+// Debounce timer for resize
+let resizeDebounce = null;
+
+// ========================================
+// Device Detection
+// ========================================
+function isMobileUI() {
+    const maxWidthMatch = window.matchMedia('(max-width: 768px)').matches;
+    const pointerMatch = window.matchMedia('(pointer: coarse)').matches;
+    return maxWidthMatch || pointerMatch;
+}
+
+// ========================================
+// Shell Management
+// ========================================
+function applyShell() {
+    const isMobile = isMobileUI();
+    const newShell = isMobile ? 'mobile' : 'desktop';
+
+    // Update aria-hidden
+    if (desktopElements.shell) {
+        desktopElements.shell.setAttribute('aria-hidden', isMobile ? 'true' : 'false');
+    }
+    if (mobileElements.shell) {
+        mobileElements.shell.setAttribute('aria-hidden', isMobile ? 'false' : 'true');
+    }
+
+    // Initialize mobile shell if needed
+    if (isMobile && !state.mobileInitialized) {
+        initMobileElements();
+        setupMobileEventListeners();
+        syncMobileUI();
+        state.mobileInitialized = true;
+    }
+
+    // Sync UI when switching shells
+    if (state.currentShell !== newShell) {
+        if (isMobile) {
+            syncMobileUI();
+        } else {
+            syncDesktopUI();
+        }
+        state.currentShell = newShell;
+    }
+}
+
 // ========================================
 // Initialization
 // ========================================
 function init() {
-    // Setup canvas context
-    elements.ctx = elements.canvas.getContext('2d');
+    // Get shared elements
+    sharedElements.videoSource = document.getElementById('videoSource');
+    sharedElements.canvas = document.getElementById('asciiCanvas');
+    sharedElements.ctx = sharedElements.canvas.getContext('2d');
 
     // Create offscreen canvas
     offscreenCanvas = document.createElement('canvas');
@@ -105,17 +184,25 @@ function init() {
 
     // Resize canvas to window
     resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
 
-    // Set mobile defaults
+    // Initialize desktop elements
+    initDesktopElements();
+    setupDesktopEventListeners();
+
+    // Get shell elements
+    desktopElements.shell = document.getElementById('desktopShell');
+    mobileElements.shell = document.getElementById('mobileShell');
+
+    // Apply correct shell based on device
+    applyShell();
+
+    // Set mobile defaults on small screens
     if (window.innerWidth < 768) {
         state.step = 10;
-        elements.sliderStep.value = 10;
-        elements.valStep.textContent = '10';
+        updateSliderUI('step', 10);
     }
-
-    // Setup event listeners
-    setupEventListeners();
 
     // Start with camera
     startCamera();
@@ -124,73 +211,302 @@ function init() {
     requestAnimationFrame(renderLoop);
 }
 
+function initDesktopElements() {
+    desktopElements.btnCamera = document.getElementById('btnCamera');
+    desktopElements.videoUpload = document.getElementById('videoUpload');
+    desktopElements.btnOutline = document.getElementById('btnOutline');
+    desktopElements.charsetMode = document.getElementById('charsetMode');
+    desktopElements.wordInput = document.getElementById('wordInput');
+    desktopElements.btnFreeze = document.getElementById('btnFreeze');
+    desktopElements.btnSnapshot = document.getElementById('btnSnapshot');
+    desktopElements.btnRecord = document.getElementById('btnRecord');
+    desktopElements.btnReset = document.getElementById('btnReset');
+    desktopElements.sliderStep = document.getElementById('sliderStep');
+    desktopElements.sliderFontSize = document.getElementById('sliderFontSize');
+    desktopElements.sliderContrast = document.getElementById('sliderContrast');
+    desktopElements.sliderThreshold = document.getElementById('sliderThreshold');
+    desktopElements.sliderGlow = document.getElementById('sliderGlow');
+    desktopElements.valStep = document.getElementById('valStep');
+    desktopElements.valFontSize = document.getElementById('valFontSize');
+    desktopElements.valContrast = document.getElementById('valContrast');
+    desktopElements.valThreshold = document.getElementById('valThreshold');
+    desktopElements.valGlow = document.getElementById('valGlow');
+    desktopElements.errorMessage = document.getElementById('errorMessage');
+}
+
+function initMobileElements() {
+    mobileElements.topBar = document.getElementById('mobileTopBar');
+    mobileElements.bottomBar = document.getElementById('mobileBottomBar');
+    mobileElements.sheet = document.getElementById('mobileSheet');
+    mobileElements.btnCamera = document.getElementById('mBtnCamera');
+    mobileElements.videoUpload = document.getElementById('mVideoUpload');
+    mobileElements.btnSettings = document.getElementById('mBtnSettings');
+    mobileElements.btnOutline = document.getElementById('mBtnOutline');
+    mobileElements.btnFreeze = document.getElementById('mBtnFreeze');
+    mobileElements.btnSnapshot = document.getElementById('mBtnSnapshot');
+    mobileElements.btnRecord = document.getElementById('mBtnRecord');
+    mobileElements.btnReset = document.getElementById('mBtnReset');
+    mobileElements.btnCloseSheet = document.getElementById('mBtnCloseSheet');
+    mobileElements.sheetHandle = document.getElementById('mSheetHandle');
+    mobileElements.charsetMode = document.getElementById('mCharsetMode');
+    mobileElements.wordInput = document.getElementById('mWordInput');
+    mobileElements.sliderStep = document.getElementById('mSliderStep');
+    mobileElements.sliderFontSize = document.getElementById('mSliderFontSize');
+    mobileElements.sliderContrast = document.getElementById('mSliderContrast');
+    mobileElements.sliderThreshold = document.getElementById('mSliderThreshold');
+    mobileElements.sliderGlow = document.getElementById('mSliderGlow');
+    mobileElements.valStep = document.getElementById('mValStep');
+    mobileElements.valFontSize = document.getElementById('mValFontSize');
+    mobileElements.valContrast = document.getElementById('mValContrast');
+    mobileElements.valThreshold = document.getElementById('mValThreshold');
+    mobileElements.valGlow = document.getElementById('mValGlow');
+    mobileElements.errorMessage = document.getElementById('mErrorMessage');
+}
+
+function handleResize() {
+    clearTimeout(resizeDebounce);
+    resizeDebounce = setTimeout(() => {
+        resizeCanvas();
+        applyShell();
+    }, 100);
+}
+
 function resizeCanvas() {
-    elements.canvas.width = window.innerWidth;
-    elements.canvas.height = window.innerHeight;
+    sharedElements.canvas.width = window.innerWidth;
+    sharedElements.canvas.height = window.innerHeight;
 }
 
 // ========================================
-// Event Listeners
+// Desktop Event Listeners
 // ========================================
-function setupEventListeners() {
-    // Video source buttons
-    elements.btnCamera.addEventListener('click', () => {
-        startCamera();
-    });
-
-    elements.videoUpload.addEventListener('change', (e) => {
-        if (e.target.files[0]) {
-            loadVideoFile(e.target.files[0]);
-        }
-    });
+function setupDesktopEventListeners() {
+    // Video source
+    desktopElements.btnCamera.addEventListener('click', startCamera);
+    desktopElements.videoUpload.addEventListener('change', handleVideoUpload);
 
     // Toggles
-    elements.btnOutline.addEventListener('click', () => {
-        state.outlineMode = !state.outlineMode;
-        elements.btnOutline.classList.toggle('active', state.outlineMode);
-    });
-
-    elements.charsetMode.addEventListener('change', (e) => {
-        state.charsetMode = e.target.value;
-        elements.wordInput.style.display = e.target.value === 'word' ? 'block' : 'none';
-    });
-
-    elements.wordInput.addEventListener('input', (e) => {
-        state.wordPhrase = e.target.value;
-        state.wordIndex = 0;
-    });
+    desktopElements.btnOutline.addEventListener('click', toggleOutline);
+    desktopElements.charsetMode.addEventListener('change', handleCharsetChange);
+    desktopElements.wordInput.addEventListener('input', handleWordInput);
 
     // Sliders
-    setupSlider('sliderStep', 'valStep', 'step', 1);
-    setupSlider('sliderFontSize', 'valFontSize', 'fontSize', 1);
-    setupSlider('sliderContrast', 'valContrast', 'contrast', 0.01);
-    setupSlider('sliderThreshold', 'valThreshold', 'threshold', 1);
-    setupSlider('sliderGlow', 'valGlow', 'glow', 0.01);
+    setupDesktopSlider('sliderStep', 'valStep', 'step', 1);
+    setupDesktopSlider('sliderFontSize', 'valFontSize', 'fontSize', 1);
+    setupDesktopSlider('sliderContrast', 'valContrast', 'contrast', 0.01);
+    setupDesktopSlider('sliderThreshold', 'valThreshold', 'threshold', 1);
+    setupDesktopSlider('sliderGlow', 'valGlow', 'glow', 0.01);
 
-    // Action buttons
-    elements.btnFreeze.addEventListener('click', toggleFreeze);
-    elements.btnSnapshot.addEventListener('click', takeSnapshot);
-    elements.btnRecord.addEventListener('click', toggleRecording);
-    elements.btnReset.addEventListener('click', resetSettings);
-
-    // Mobile sliders toggle (only works on mobile via CSS)
-    if (elements.btnToggleSliders) {
-        elements.btnToggleSliders.addEventListener('click', () => {
-            elements.btnToggleSliders.classList.toggle('collapsed');
-            elements.slidersPanel.classList.toggle('collapsed');
-        });
-    }
+    // Actions
+    desktopElements.btnFreeze.addEventListener('click', toggleFreeze);
+    desktopElements.btnSnapshot.addEventListener('click', takeSnapshot);
+    desktopElements.btnRecord.addEventListener('click', toggleRecording);
+    desktopElements.btnReset.addEventListener('click', resetSettings);
 }
 
-function setupSlider(sliderId, valueId, stateKey, multiplier) {
-    const slider = elements[sliderId];
-    const valueDisplay = elements[valueId];
+function setupDesktopSlider(sliderId, valueId, stateKey, multiplier) {
+    const slider = desktopElements[sliderId];
+    const valueDisplay = desktopElements[valueId];
 
     slider.addEventListener('input', () => {
         const value = parseFloat(slider.value) * multiplier;
         state[stateKey] = value;
         valueDisplay.textContent = value.toFixed(multiplier < 1 ? 1 : 0);
+        // Sync to mobile if initialized
+        if (state.mobileInitialized) {
+            syncMobileSlider(stateKey);
+        }
     });
+}
+
+// ========================================
+// Mobile Event Listeners
+// ========================================
+function setupMobileEventListeners() {
+    // Video source
+    mobileElements.btnCamera.addEventListener('click', startCamera);
+    mobileElements.videoUpload.addEventListener('change', handleVideoUpload);
+
+    // Settings sheet
+    mobileElements.btnSettings.addEventListener('click', openSheet);
+    mobileElements.btnCloseSheet.addEventListener('click', closeSheet);
+    mobileElements.sheetHandle.addEventListener('click', closeSheet);
+
+    // Toggles
+    mobileElements.btnOutline.addEventListener('click', toggleOutline);
+    mobileElements.charsetMode.addEventListener('change', handleCharsetChange);
+    mobileElements.wordInput.addEventListener('input', handleWordInput);
+
+    // Sliders
+    setupMobileSlider('sliderStep', 'valStep', 'step', 1);
+    setupMobileSlider('sliderFontSize', 'valFontSize', 'fontSize', 1);
+    setupMobileSlider('sliderContrast', 'valContrast', 'contrast', 0.01);
+    setupMobileSlider('sliderThreshold', 'valThreshold', 'threshold', 1);
+    setupMobileSlider('sliderGlow', 'valGlow', 'glow', 0.01);
+
+    // Actions
+    mobileElements.btnFreeze.addEventListener('click', toggleFreeze);
+    mobileElements.btnSnapshot.addEventListener('click', takeSnapshot);
+    mobileElements.btnRecord.addEventListener('click', toggleRecording);
+    mobileElements.btnReset.addEventListener('click', resetSettings);
+}
+
+function setupMobileSlider(sliderId, valueId, stateKey, multiplier) {
+    const slider = mobileElements[sliderId];
+    const valueDisplay = mobileElements[valueId];
+
+    slider.addEventListener('input', () => {
+        const value = parseFloat(slider.value) * multiplier;
+        state[stateKey] = value;
+        valueDisplay.textContent = value.toFixed(multiplier < 1 ? 1 : 0);
+        // Sync to desktop
+        syncDesktopSlider(stateKey);
+    });
+}
+
+// ========================================
+// UI Sync Functions
+// ========================================
+function syncMobileUI() {
+    if (!state.mobileInitialized) return;
+
+    // Sync sliders
+    mobileElements.sliderStep.value = state.step;
+    mobileElements.sliderFontSize.value = state.fontSize;
+    mobileElements.sliderContrast.value = state.contrast * 100;
+    mobileElements.sliderThreshold.value = state.threshold;
+    mobileElements.sliderGlow.value = state.glow * 100;
+
+    // Sync value displays
+    mobileElements.valStep.textContent = state.step;
+    mobileElements.valFontSize.textContent = state.fontSize;
+    mobileElements.valContrast.textContent = state.contrast.toFixed(1);
+    mobileElements.valThreshold.textContent = state.threshold;
+    mobileElements.valGlow.textContent = state.glow.toFixed(1);
+
+    // Sync toggles
+    mobileElements.charsetMode.value = state.charsetMode;
+    mobileElements.wordInput.style.display = state.charsetMode === 'word' ? 'block' : 'none';
+    mobileElements.wordInput.value = state.wordPhrase;
+    mobileElements.btnOutline.classList.toggle('active', state.outlineMode);
+    mobileElements.btnFreeze.classList.toggle('active', state.isFrozen);
+    mobileElements.btnFreeze.textContent = state.isFrozen ? 'Unfreeze' : 'Freeze';
+
+    // Camera button state
+    mobileElements.btnCamera.classList.toggle('active', state.videoSource === 'camera');
+}
+
+function syncDesktopUI() {
+    // Sync sliders
+    desktopElements.sliderStep.value = state.step;
+    desktopElements.sliderFontSize.value = state.fontSize;
+    desktopElements.sliderContrast.value = state.contrast * 100;
+    desktopElements.sliderThreshold.value = state.threshold;
+    desktopElements.sliderGlow.value = state.glow * 100;
+
+    // Sync value displays
+    desktopElements.valStep.textContent = state.step;
+    desktopElements.valFontSize.textContent = state.fontSize;
+    desktopElements.valContrast.textContent = state.contrast.toFixed(1);
+    desktopElements.valThreshold.textContent = state.threshold;
+    desktopElements.valGlow.textContent = state.glow.toFixed(1);
+
+    // Sync toggles
+    desktopElements.charsetMode.value = state.charsetMode;
+    desktopElements.wordInput.style.display = state.charsetMode === 'word' ? 'block' : 'none';
+    desktopElements.wordInput.value = state.wordPhrase;
+    desktopElements.btnOutline.classList.toggle('active', state.outlineMode);
+    desktopElements.btnFreeze.classList.toggle('active', state.isFrozen);
+    desktopElements.btnFreeze.textContent = state.isFrozen ? 'Unfreeze' : 'Freeze';
+
+    // Camera button state
+    desktopElements.btnCamera.classList.toggle('active', state.videoSource === 'camera');
+}
+
+function syncMobileSlider(stateKey) {
+    const sliderMap = {
+        step: { slider: 'sliderStep', val: 'valStep', mult: 1 },
+        fontSize: { slider: 'sliderFontSize', val: 'valFontSize', mult: 1 },
+        contrast: { slider: 'sliderContrast', val: 'valContrast', mult: 0.01 },
+        threshold: { slider: 'sliderThreshold', val: 'valThreshold', mult: 1 },
+        glow: { slider: 'sliderGlow', val: 'valGlow', mult: 0.01 }
+    };
+    const map = sliderMap[stateKey];
+    if (map && mobileElements[map.slider]) {
+        mobileElements[map.slider].value = state[stateKey] / map.mult;
+        mobileElements[map.val].textContent = state[stateKey].toFixed(map.mult < 1 ? 1 : 0);
+    }
+}
+
+function syncDesktopSlider(stateKey) {
+    const sliderMap = {
+        step: { slider: 'sliderStep', val: 'valStep', mult: 1 },
+        fontSize: { slider: 'sliderFontSize', val: 'valFontSize', mult: 1 },
+        contrast: { slider: 'sliderContrast', val: 'valContrast', mult: 0.01 },
+        threshold: { slider: 'sliderThreshold', val: 'valThreshold', mult: 1 },
+        glow: { slider: 'sliderGlow', val: 'valGlow', mult: 0.01 }
+    };
+    const map = sliderMap[stateKey];
+    if (map && desktopElements[map.slider]) {
+        desktopElements[map.slider].value = state[stateKey] / map.mult;
+        desktopElements[map.val].textContent = state[stateKey].toFixed(map.mult < 1 ? 1 : 0);
+    }
+}
+
+function updateSliderUI(stateKey, value) {
+    state[stateKey] = value;
+    syncDesktopSlider(stateKey);
+    if (state.mobileInitialized) {
+        syncMobileSlider(stateKey);
+    }
+}
+
+// ========================================
+// Mobile Sheet Controls
+// ========================================
+function openSheet() {
+    mobileElements.sheet.classList.add('open');
+}
+
+function closeSheet() {
+    mobileElements.sheet.classList.remove('open');
+}
+
+// ========================================
+// Shared Control Functions
+// ========================================
+function handleVideoUpload(e) {
+    if (e.target.files[0]) {
+        loadVideoFile(e.target.files[0]);
+    }
+}
+
+function handleCharsetChange(e) {
+    state.charsetMode = e.target.value;
+    const showWord = e.target.value === 'word';
+    desktopElements.wordInput.style.display = showWord ? 'block' : 'none';
+    if (state.mobileInitialized) {
+        mobileElements.wordInput.style.display = showWord ? 'block' : 'none';
+        mobileElements.charsetMode.value = e.target.value;
+    }
+    desktopElements.charsetMode.value = e.target.value;
+}
+
+function handleWordInput(e) {
+    state.wordPhrase = e.target.value;
+    state.wordIndex = 0;
+    // Sync across shells
+    desktopElements.wordInput.value = state.wordPhrase;
+    if (state.mobileInitialized) {
+        mobileElements.wordInput.value = state.wordPhrase;
+    }
+}
+
+function toggleOutline() {
+    state.outlineMode = !state.outlineMode;
+    desktopElements.btnOutline.classList.toggle('active', state.outlineMode);
+    if (state.mobileInitialized) {
+        mobileElements.btnOutline.classList.toggle('active', state.outlineMode);
+    }
 }
 
 // ========================================
@@ -212,8 +528,8 @@ async function startCamera() {
             audio: false
         });
 
-        elements.videoSource.srcObject = stream;
-        await elements.videoSource.play();
+        sharedElements.videoSource.srcObject = stream;
+        await sharedElements.videoSource.play();
 
         // Ensure canvas is sized after camera starts
         resizeCanvas();
@@ -222,7 +538,10 @@ async function startCamera() {
         state.isVideoReady = true;
 
         // Update UI
-        elements.btnCamera.classList.add('active');
+        desktopElements.btnCamera.classList.add('active');
+        if (state.mobileInitialized) {
+            mobileElements.btnCamera.classList.add('active');
+        }
 
     } catch (err) {
         showError('Camera access denied. Please allow camera permissions or upload a video file.');
@@ -235,39 +554,39 @@ function loadVideoFile(file) {
     stopVideoSource();
 
     const url = URL.createObjectURL(file);
-    elements.videoSource.srcObject = null;
-    elements.videoSource.src = url;
-    elements.videoSource.loop = true;
-    elements.videoSource.muted = true;
+    sharedElements.videoSource.srcObject = null;
+    sharedElements.videoSource.src = url;
+    sharedElements.videoSource.loop = true;
+    sharedElements.videoSource.muted = true;
 
-    elements.videoSource.onloadedmetadata = () => {
-        // Resize canvas when video metadata loads
+    sharedElements.videoSource.onloadedmetadata = () => {
         resizeCanvas();
     };
 
-    elements.videoSource.onloadeddata = () => {
-        elements.videoSource.play();
+    sharedElements.videoSource.onloadeddata = () => {
+        sharedElements.videoSource.play();
         state.videoSource = 'file';
         state.isVideoReady = true;
-        elements.btnCamera.classList.remove('active');
+        desktopElements.btnCamera.classList.remove('active');
+        if (state.mobileInitialized) {
+            mobileElements.btnCamera.classList.remove('active');
+        }
     };
 
-    elements.videoSource.onerror = () => {
+    sharedElements.videoSource.onerror = () => {
         showError('Could not load video file. Try a different format.');
     };
 }
 
 function stopVideoSource() {
-    // Stop camera stream if active
-    if (elements.videoSource.srcObject) {
-        elements.videoSource.srcObject.getTracks().forEach(track => track.stop());
-        elements.videoSource.srcObject = null;
+    if (sharedElements.videoSource.srcObject) {
+        sharedElements.videoSource.srcObject.getTracks().forEach(track => track.stop());
+        sharedElements.videoSource.srcObject = null;
     }
 
-    // Clear video file
-    if (elements.videoSource.src) {
-        URL.revokeObjectURL(elements.videoSource.src);
-        elements.videoSource.src = '';
+    if (sharedElements.videoSource.src) {
+        URL.revokeObjectURL(sharedElements.videoSource.src);
+        sharedElements.videoSource.src = '';
     }
 
     state.isVideoReady = false;
@@ -287,9 +606,9 @@ function renderLoop() {
 function renderASCII() {
     if (!state.isVideoReady) return;
 
-    const ctx = elements.ctx;
-    const canvas = elements.canvas;
-    const video = elements.videoSource;
+    const ctx = sharedElements.ctx;
+    const canvas = sharedElements.canvas;
+    const video = sharedElements.videoSource;
 
     const fontSize = state.fontSize;
     const contrast = state.contrast;
@@ -326,7 +645,6 @@ function renderASCII() {
         const r = pixels[i];
         const g = pixels[i + 1];
         const b = pixels[i + 2];
-        // Standard luminance formula
         luminance[i / 4] = 0.299 * r + 0.587 * g + 0.114 * b;
     }
 
@@ -373,33 +691,27 @@ function renderASCII() {
             // Map luminance to character
             let charIndex;
             if (state.charsetMode === 'word' && state.wordPhrase.length > 0) {
-                // In word mode, cycle through phrase
                 if (lum > state.threshold) {
                     charIndex = state.wordIndex % charset.length;
                     state.wordIndex++;
                 } else {
-                    continue; // Skip dark areas in word mode
+                    continue;
                 }
             } else {
                 charIndex = Math.floor((lum / 255) * (charset.length - 1));
             }
 
             const char = charset[charIndex];
-
-            // Skip spaces for performance
             if (char === ' ') continue;
 
-            // Calculate position
             const px = x * cellWidth;
             const py = y * cellHeight;
 
-            // Set color (white)
             ctx.fillStyle = '#fff';
             ctx.fillText(char, px, py);
         }
     }
 
-    // Reset word index each frame for consistent cycling
     if (state.charsetMode === 'word') {
         state.wordIndex = 0;
     }
@@ -410,8 +722,6 @@ function renderASCII() {
 // ========================================
 function applySobelEdgeDetection(luminance, width, height) {
     const edges = new Float32Array(width * height);
-
-    // Sobel kernels
     const gx = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
     const gy = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
 
@@ -420,18 +730,15 @@ function applySobelEdgeDetection(luminance, width, height) {
             let sumX = 0;
             let sumY = 0;
 
-            // Apply 3x3 kernel
             for (let ky = -1; ky <= 1; ky++) {
                 for (let kx = -1; kx <= 1; kx++) {
                     const idx = (y + ky) * width + (x + kx);
                     const kernelIdx = (ky + 1) * 3 + (kx + 1);
-
                     sumX += luminance[idx] * gx[kernelIdx];
                     sumY += luminance[idx] * gy[kernelIdx];
                 }
             }
 
-            // Gradient magnitude
             const magnitude = Math.sqrt(sumX * sumX + sumY * sumY);
             edges[y * width + x] = Math.min(255, magnitude);
         }
@@ -445,14 +752,21 @@ function applySobelEdgeDetection(luminance, width, height) {
 // ========================================
 function toggleFreeze() {
     state.isFrozen = !state.isFrozen;
-    elements.btnFreeze.textContent = state.isFrozen ? 'Unfreeze' : 'Freeze';
-    elements.btnFreeze.classList.toggle('active', state.isFrozen);
+    const text = state.isFrozen ? 'Unfreeze' : 'Freeze';
+
+    desktopElements.btnFreeze.textContent = text;
+    desktopElements.btnFreeze.classList.toggle('active', state.isFrozen);
+
+    if (state.mobileInitialized) {
+        mobileElements.btnFreeze.textContent = state.isFrozen ? 'Unfreeze' : 'Freeze';
+        mobileElements.btnFreeze.classList.toggle('active', state.isFrozen);
+    }
 }
 
 function takeSnapshot() {
     const link = document.createElement('a');
     link.download = `ascii-cam-${Date.now()}.png`;
-    link.href = elements.canvas.toDataURL('image/png');
+    link.href = sharedElements.canvas.toDataURL('image/png');
     link.click();
 }
 
@@ -463,7 +777,7 @@ async function toggleRecording() {
     }
 
     try {
-        const stream = elements.canvas.captureStream(30);
+        const stream = sharedElements.canvas.captureStream(30);
         state.mediaRecorder = new MediaRecorder(stream, {
             mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
                 ? 'video/webm;codecs=vp9'
@@ -490,8 +804,14 @@ async function toggleRecording() {
 
         state.mediaRecorder.start();
         state.isRecording = true;
-        elements.btnRecord.textContent = 'Recording...';
-        elements.btnRecord.classList.add('recording');
+
+        desktopElements.btnRecord.textContent = 'Recording...';
+        desktopElements.btnRecord.classList.add('recording');
+
+        if (state.mobileInitialized) {
+            mobileElements.btnRecord.textContent = 'Stop';
+            mobileElements.btnRecord.classList.add('recording');
+        }
 
         // Auto-stop after 5 seconds
         setTimeout(() => {
@@ -510,40 +830,33 @@ function stopRecording() {
     if (state.mediaRecorder && state.isRecording) {
         state.mediaRecorder.stop();
         state.isRecording = false;
-        elements.btnRecord.textContent = 'Record 5s';
-        elements.btnRecord.classList.remove('recording');
+
+        desktopElements.btnRecord.textContent = 'Record 5s';
+        desktopElements.btnRecord.classList.remove('recording');
+
+        if (state.mobileInitialized) {
+            mobileElements.btnRecord.textContent = 'Record';
+            mobileElements.btnRecord.classList.remove('recording');
+        }
     }
 }
 
 function resetSettings() {
-    // Reset state to defaults
+    // Reset state
     Object.keys(CONFIG.defaults).forEach(key => {
         state[key] = CONFIG.defaults[key];
     });
 
-    // Reset sliders
-    elements.sliderStep.value = CONFIG.defaults.step;
-    elements.sliderFontSize.value = CONFIG.defaults.fontSize;
-    elements.sliderContrast.value = CONFIG.defaults.contrast * 100;
-    elements.sliderThreshold.value = CONFIG.defaults.threshold;
-    elements.sliderGlow.value = CONFIG.defaults.glow * 100;
-
-    // Reset value displays
-    elements.valStep.textContent = CONFIG.defaults.step;
-    elements.valFontSize.textContent = CONFIG.defaults.fontSize;
-    elements.valContrast.textContent = CONFIG.defaults.contrast.toFixed(1);
-    elements.valThreshold.textContent = CONFIG.defaults.threshold;
-    elements.valGlow.textContent = CONFIG.defaults.glow.toFixed(1);
-
-    // Reset modes
     state.outlineMode = false;
     state.charsetMode = 'dense';
     state.wordPhrase = '';
 
-    elements.btnOutline.classList.remove('active');
-    elements.charsetMode.value = 'dense';
-    elements.wordInput.style.display = 'none';
-    elements.wordInput.value = '';
+    // Sync both UIs
+    syncDesktopUI();
+    if (state.mobileInitialized) {
+        syncMobileUI();
+        closeSheet();
+    }
 
     // Unfreeze
     if (state.isFrozen) {
@@ -554,15 +867,28 @@ function resetSettings() {
 }
 
 // ========================================
-// Utility Functions
+// Error Handling
 // ========================================
 function showError(message) {
-    elements.errorMessage.textContent = message;
-    elements.errorMessage.classList.add('visible');
+    desktopElements.errorMessage.textContent = message;
+    desktopElements.errorMessage.classList.add('visible');
+
+    if (state.mobileInitialized) {
+        mobileElements.errorMessage.textContent = message;
+        mobileElements.errorMessage.classList.add('visible');
+
+        // Auto-hide on mobile after 4 seconds
+        setTimeout(() => {
+            mobileElements.errorMessage.classList.remove('visible');
+        }, 4000);
+    }
 }
 
 function hideError() {
-    elements.errorMessage.classList.remove('visible');
+    desktopElements.errorMessage.classList.remove('visible');
+    if (state.mobileInitialized) {
+        mobileElements.errorMessage.classList.remove('visible');
+    }
 }
 
 // ========================================
