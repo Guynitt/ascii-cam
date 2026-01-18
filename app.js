@@ -81,6 +81,10 @@ const elements = {
     valThreshold: document.getElementById('valThreshold'),
     valGlow: document.getElementById('valGlow'),
 
+    // Mobile toggle
+    btnToggleSliders: document.getElementById('btnToggleSliders'),
+    slidersPanel: document.getElementById('slidersPanel'),
+
     // Error
     errorMessage: document.getElementById('errorMessage')
 };
@@ -168,6 +172,14 @@ function setupEventListeners() {
     elements.btnSnapshot.addEventListener('click', takeSnapshot);
     elements.btnRecord.addEventListener('click', toggleRecording);
     elements.btnReset.addEventListener('click', resetSettings);
+
+    // Mobile sliders toggle (only works on mobile via CSS)
+    if (elements.btnToggleSliders) {
+        elements.btnToggleSliders.addEventListener('click', () => {
+            elements.btnToggleSliders.classList.toggle('collapsed');
+            elements.slidersPanel.classList.toggle('collapsed');
+        });
+    }
 }
 
 function setupSlider(sliderId, valueId, stateKey, multiplier) {

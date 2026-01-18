@@ -299,51 +299,219 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ========================================
-   Mobile Responsive
+   Mobile Toggle Button (hidden on desktop)
    ======================================== */
-@media (max-width: 768px) {
+.mobile-toggle {
+    display: none;
+}
+
+/* ========================================
+   Mobile Responsive Overrides
+   Only activates on mobile - desktop stays identical
+   ======================================== */
+@media (max-width: 768px),
+(pointer: coarse) {
+
+    /* ---- Controls Panel ---- */
     #controls {
+        position: sticky;
+        top: 0;
         padding: 12px;
+        padding-bottom: env(safe-area-inset-bottom, 12px);
+        gap: 10px;
+        max-height: 60vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* ---- Control Rows ---- */
+    .control-row {
+        width: 100%;
         gap: 10px;
     }
 
-    .control-row {
-        gap: 8px;
-    }
-
-    .sliders {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .actions {
-        flex-wrap: wrap;
-    }
-
-    .action-btn.reset {
-        margin-left: 0;
-    }
-}
-
-@media (max-width: 480px) {
-    .sliders {
-        grid-template-columns: 1fr;
+    /* ---- Sources Row ---- */
+    .control-row.sources {
+        flex-direction: column;
+        align-items: flex-start;
     }
 
     .source-group {
         width: 100%;
-        justify-content: space-between;
+        justify-content: flex-start;
+        gap: 10px;
     }
-}
 
-/* Touch optimization */
-@media (hover: none) and (pointer: coarse) {
+    #creditOverlay {
+        margin-left: 0;
+        margin-top: 4px;
+        font-size: 10px;
+        opacity: 0.6;
+    }
+
+    /* ---- Labels ---- */
+    .label {
+        font-size: 12px;
+    }
+
+    /* ---- Buttons - Touch Friendly ---- */
+    .source-btn,
+    .toggle-btn,
+    .action-btn {
+        min-height: 48px;
+        padding: 12px 16px;
+        font-size: 14px;
+        flex: 1 1 auto;
+    }
+
+    /* ---- Toggles Row ---- */
+    .control-row.toggles {
+        flex-wrap: wrap;
+        padding-bottom: 12px;
+    }
+
+    .charset-toggle {
+        flex: 1;
+    }
+
+    select#charsetMode {
+        min-height: 48px;
+        font-size: 14px;
+        flex: 1;
+    }
+
+    .word-input {
+        width: 100%;
+        min-height: 48px;
+        font-size: 14px;
+    }
+
+    /* ---- Mobile Toggle Button ---- */
+    .mobile-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--control-border);
+        border-radius: var(--radius);
+        color: var(--fg-dim);
+        font-family: inherit;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .mobile-toggle:active {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .toggle-icon {
+        transition: transform 0.2s ease;
+    }
+
+    .mobile-toggle.collapsed .toggle-icon {
+        transform: rotate(-90deg);
+    }
+
+    /* ---- Sliders Panel ---- */
+    #slidersPanel {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+        transition: max-height 0.3s ease, opacity 0.2s ease, padding 0.3s ease;
+        overflow: hidden;
+    }
+
+    #slidersPanel.collapsed {
+        max-height: 0 !important;
+        opacity: 0;
+        padding: 0;
+        margin: 0;
+        pointer-events: none;
+    }
+
+    .slider-group {
+        width: 100%;
+        gap: 8px;
+    }
+
+    .slider-group label {
+        font-size: 13px;
+    }
+
+    /* ---- Slider Thumb - Larger for Touch ---- */
+    input[type="range"] {
+        height: 6px;
+    }
+
     input[type="range"]::-webkit-slider-thumb {
-        width: 24px;
-        height: 24px;
+        width: 28px;
+        height: 28px;
     }
 
     input[type="range"]::-moz-range-thumb {
-        width: 24px;
-        height: 24px;
+        width: 28px;
+        height: 28px;
+    }
+
+    /* ---- Actions Row ---- */
+    .control-row.actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .action-btn {
+        width: 100%;
+    }
+
+    .action-btn.reset {
+        margin-left: 0;
+        grid-column: span 2;
+    }
+
+    /* ---- Output Container ---- */
+    #outputContainer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100dvh;
+    }
+
+    #asciiCanvas {
+        width: 100%;
+        height: 100%;
+    }
+
+    /* ---- Error Message ---- */
+    .error-message {
+        font-size: 13px;
+        padding: 12px;
+    }
+}
+
+/* ========================================
+   Extra Small Screens (< 400px)
+   ======================================== */
+@media (max-width: 400px) {
+
+    .source-btn,
+    .toggle-btn,
+    .action-btn {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+
+    .control-row.actions {
+        grid-template-columns: 1fr;
+    }
+
+    .action-btn.reset {
+        grid-column: span 1;
     }
 }

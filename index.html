@@ -50,8 +50,13 @@
             <input type="text" id="wordInput" placeholder="Enter phrase..." class="word-input" style="display:none;">
         </div>
 
+        <!-- Mobile sliders toggle (hidden on desktop) -->
+        <button id="btnToggleSliders" class="mobile-toggle">
+            <span class="toggle-icon">▼</span> Settings
+        </button>
+
         <!-- Sliders -->
-        <div class="control-row sliders">
+        <div class="control-row sliders" id="slidersPanel">
             <div class="slider-group">
                 <label>Resolution <span id="valStep">8</span></label>
                 <input type="range" id="sliderStep" min="4" max="20" value="8">
