@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ASCII Cam</title>
+    <meta name="description" content="Real-time camera to ASCII art converter">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!-- Hidden video element -->
+    <video id="videoSource" autoplay muted playsinline></video>
+
+    <!-- Output container with canvas -->
+    <div id="outputContainer">
+        <canvas id="asciiCanvas"></canvas>
+    </div>
+
+    <!-- Controls panel -->
+    <div id="controls">
+        <!-- Source selectors -->
+        <div class="control-row sources">
+            <div class="source-group">
+                <span class="label">Video</span>
+                <button id="btnCamera" class="source-btn active">Camera</button>
+                <label class="source-btn file-label">
+                    Upload
+                    <input type="file" id="videoUpload" accept="video/mp4,video/webm,video/quicktime" hidden>
+                </label>
+            </div>
+            <div id="creditOverlay">Created by Guy Nittenberg</div>
+        </div>
+
+        <!-- Error message -->
+        <div id="errorMessage" class="error-message"></div>
+
+        <!-- Toggle buttons -->
+        <div class="control-row toggles">
+            <button id="btnOutline" class="toggle-btn">Outline Mode</button>
+            <div class="charset-toggle">
+                <span class="label">Charset</span>
+                <select id="charsetMode">
+                    <option value="dense">Dense</option>
+                    <option value="light">Light</option>
+                    <option value="word">Word</option>
+                </select>
+            </div>
+            <input type="text" id="wordInput" placeholder="Enter phrase..." class="word-input" style="display:none;">
+        </div>
+
+        <!-- Sliders -->
+        <div class="control-row sliders">
+            <div class="slider-group">
+                <label>Resolution <span id="valStep">8</span></label>
+                <input type="range" id="sliderStep" min="4" max="20" value="8">
+            </div>
+            <div class="slider-group">
+                <label>Font Size <span id="valFontSize">12</span></label>
+                <input type="range" id="sliderFontSize" min="6" max="22" value="12">
+            </div>
+            <div class="slider-group">
+                <label>Contrast <span id="valContrast">1.2</span></label>
+                <input type="range" id="sliderContrast" min="50" max="250" value="120">
+            </div>
+            <div class="slider-group">
+                <label>Threshold <span id="valThreshold">0</span></label>
+                <input type="range" id="sliderThreshold" min="0" max="255" value="0">
+            </div>
+            <div class="slider-group">
+                <label>Glow <span id="valGlow">0.3</span></label>
+                <input type="range" id="sliderGlow" min="0" max="100" value="30">
+            </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="control-row actions">
+            <button id="btnFreeze" class="action-btn">Freeze</button>
+            <button id="btnSnapshot" class="action-btn">Snapshot</button>
+            <button id="btnRecord" class="action-btn">Record 5s</button>
+            <button id="btnReset" class="action-btn reset">Reset</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
